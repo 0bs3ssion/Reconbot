@@ -1,0 +1,410 @@
+#!/usr/bin/env python3
+import sys, re, os, subprocess, threading, time
+from termcolor import colored
+
+class reconbot:
+
+    def __init__(self, args):
+        self.args = args
+        self.scriptthreads = {}
+        self.checkargs()
+        self.checkroot()
+        self.services = {} # format = protocl_port : service
+        self.runningscripts = []
+        self.mapped_services = {
+            "telnet": ["hydra_telnet", "nmap_nse_telnet"],
+            "ftp": ['nmap_nse_ftp', "hydra_ftp"],
+            "ssh" : ["hydra_ssh", "nmap_nse_ssh"],
+            "http" : ['gobuster', 'nikto', 'nmap_nse_http'],
+            "msrpc" : ['rpcinfo', 'nmap_nse_rpc', 'nmap_nse_msrpc'],
+            "netbios" : ['enum4linux', 'nmap_nse_smb', 'nmap_nse_nbstat', 'smbmap'],
+            "microsoft-ds" : ['enum4linux', 'nmap_nse_nbstat', 'nmap_nse_smb', 'smbmap', "hydra_smb"],
+            "snmp" : ['snmp-check', 'onesixtyone', 'snmpwalk', 'nmap_nse_snmp'],
+            "smtp" : ['nmap_nse_smtp'],
+            "ntp" : ['nmap_nse_ntp'],
+            "dns" : ['nmap_nse_dns'],
+            "imap": ['nmap_nse_imap'],
+            "ldap": ['nmap_nse_ldap'],
+            "mongodb": ['nmap_nse_mongodb'],
+            "ms-sql": ['nmap_nse_ms-sql'],
+            "irc": ['nmap_nse_irc'],
+            "mysql": ['nmap_nse_mysql', "hydra_mysql"]
+        }
+        self.mapped_commands = {
+            "gobuster" : "gobuster dir --url http://__IP__:__PORT__/ -s '200,204,301,302,307,403,500' -x 'txt,html,php,asp,aspx,jsp' -w /usr/share/seclists/Discovery/Web-Content/big.txt",
+            "nikto" : "nikto -ask=no --host http://__IP__:__PORT__/",
+            "enum4linux" : "enum4linux -a __IP__ ",
+            "rpcinfo" : "rpcinfo __IP__ ",
+            "snmp-check" : "snmp-check __IP__",
+            "onesixtyone" : "onesixtyone __IP__",
+            "snmpwalk" : "snmpwalk __IP__",
+            "smbmap" : "smbmap -H __IP__ -P __PORT__",
+            "nmap_nse_telnet": "nmap -Pn -p __PORT__ --script \"telnet* and not telnet-brute*\" __IP__",
+            "nmap_nse_ssh": "nmap -Pn -p __PORT__ --script \"ssh* and not ssh-brute*\" __IP__",
+            "nmap_nse_nbstat" : "nmap -Pn -p __PORT__ --script \"nbstat*\" __IP__",
+            "nmap_nse_smb" : "nmap -Pn -p __PORT__ --script \"smb-enum*\" __IP__",
+            "nmap_nse_rpc" : "nmap -Pn -p __PORT__ --script \"rpc* and not rpcap*\" __IP__",
+            "nmap_nse_snmp": "nmap -Pn -p __PORT__ --script \"snmp*\" __IP__",
+            "nmap_nse_smtp": "nmap -Pn -p __PORT__ --script \"smtp*\" __IP__",
+            "nmap_nse_http": "nmap -Pn -p __PORT__ --script \"http*\" __IP__",
+            "nmap_nse_ntp": "nmap -Pn -p __PORT__ --script \"ntp*\" __IP__",
+            "nmap_nse_dns": "nmap -Pn -p __PORT__ --script \"dns*\" __IP__",
+            "nmap_nse_ftp": "nmap -Pn -p __PORT__ --script \"ftp* and not ftp-brute*\" __IP__",
+            "nmap_nse_imap": "nmap -Pn -p __PORT__ --script \"imap*\" __IP__",
+            "nmap_nse_ldap": "nmap -Pn -p __PORT__ --script \"ldap*\" __IP__",
+            "nmap_nse_irc": "nmap -Pn -p __PORT__ --script \"irc*\" __IP__",
+            "nmap_nse_mongodb": "nmap -Pn -p __PORT__ --script \"mongodb*\" __IP__",
+            "nmap_nse_ms-sql": "nmap -Pn -p __PORT__ --script \"ms-sql*\" __IP__",
+            "nmap_nse_mysql": "nmap -Pn -p __PORT__ --script \"mysql* and not mysql-brute*\" __IP__",
+            "nmap_nse_msrpc": "nmap -Pn -p __PORT__ --script \"msrpc*\" __IP__",
+
+            # hydra will attempt to bruteforce about 1700 combinations (17 usernames with 100 passwords)
+            "hydra_ftp": "hydra -s __PORT__ -L /usr/share/seclists/Usernames/top-usernames-shortlist.txt -P /usr/share/seclists/Passwords/xato-net-10-million-passwords-100.txt __IP__ ftp",
+            "hydra_ssh": "hydra -s __PORT__ -L /usr/share/seclists/Usernames/top-usernames-shortlist.txt -P /usr/share/seclists/Passwords/xato-net-10-million-passwords-100.txt __IP__ ssh",
+            "hydra_smb": "hydra -s __PORT__ -L /usr/share/seclists/Usernames/top-usernames-shortlist.txt -P /usr/share/seclists/Passwords/xato-net-10-million-passwords-100.txt __IP__ smb",
+            "hydra_mysql": "hydra -s __PORT__ -L /usr/share/seclists/Usernames/top-usernames-shortlist.txt -P /usr/share/seclists/Passwords/xato-net-10-million-passwords-100.txt __IP__ mysql",
+            "hydra_telnet": "hydra -s __PORT__ -L /usr/share/seclists/Usernames/top-usernames-shortlist.txt -P /usr/share/seclists/Passwords/xato-net-10-million-passwords-100.txt __IP__ telnet"
+        }
+        self.runonce_commands = [
+            "enum4linux",
+            "onesixtyone",
+            "snmpwalk",
+            "smtp-user-enum",
+            "rpcinfo"
+        ]
+        self.blacklist_services = {
+        }
+
+    def bprint(self, text):
+        print(text)
+        self.logfile = open(f"{self.TARGET}/reconbot_output.txt", "a+")
+        self.logfile.write(text + '\n')
+        self.logfile.close()
+
+    def bot_print(self, line, color):
+        text = ""
+        text += colored('[', 'white', attrs=['bold']) + colored('!', color, attrs=['bold']) + colored('] ', 'white', attrs=['bold'])
+        text += colored(line, color)
+        self.bprint(text)
+
+    def bot_print_alert(self, line): # print a colored line
+        self.bot_print(line, 'red')
+
+    def bot_print_process(self, line): # print a colored line
+        self.bot_print(line, 'green')
+
+    def bot_print_done(self, line): # print a colored line
+        self.bot_print(line, 'yellow')
+
+    def bot_startline(self):
+        self.bprint(colored('-'*100, 'grey', attrs=['bold']))
+
+    def bot_endline(self):
+        self.bprint(colored('-' * 100, 'grey', attrs=['bold']))
+
+    def checkroot(self):
+        if os.geteuid() != 0:
+            self.bot_print_alert('You need to be root to run this script!')
+            sys.exit()
+
+    def checkargs(self): # Check if a valid ip address is supplied
+        if len(self.args) < 2 or len(self.args) > 2:
+            self.printUsage()
+        elif not re.search('^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$', self.args[1]):
+            self.printUsage()
+        else:
+            self.TARGET = self.args[1]
+            self.createDir()
+        self.printHeader()
+
+    def printUsage(self): # Print some basic usage info
+        usagetext = ""
+        usagetext += colored('ReconBot Usage\n', 'red', attrs=['bold'])
+        usagetext += colored('reconbot [TARGET IP]\n\n', 'red')
+        usagetext += colored('EXAMPLE\n', 'red', attrs=['bold'])
+        usagetext += colored('./reconbot 127.0.0.1\n\n', 'red')
+        print(usagetext)
+        sys.exit()
+
+    def printHeader(self):
+        header = "\n"
+        header += colored('-'*100, 'green', attrs=['bold'])
+        header += colored('\nReconBot - Automatic Reconnaissance Bot\n', 'red', attrs=['bold'])
+        header += colored('-'*100, 'green', attrs=['bold'])
+        header += "\n"
+        self.bprint(header)
+        self.bot_print_done(f"Output saved to: {self.TARGET}/reconbot_output.txt")
+
+    def createDir(self):
+        self.PATH = f'{self.TARGET}/recon'
+        if not os.path.exists(self.PATH):
+            os.makedirs(self.PATH)
+            os.chmod(self.TARGET, 0o755)
+            os.chmod(self.PATH, 0o755)
+            os.chown(self.TARGET, 1000, 1000)
+            os.chown(self.PATH, 1000, 1000)
+
+    def nmap_quick(self):
+        self.bot_print_process('Starting NMAP TCP Quick scan')
+        newports = self.get_command_output(f'nmap -sS -Pn --open -oN {self.PATH+"/nmap_quick"} {self.TARGET}', "NMAP Quick Scan", True)
+        self.check_scripts("tcp")
+        if newports != 0:
+            self.nmap_detailed("NMAP TCP Quick detailed scan", True, "TCP", "Quick")
+
+    def nmap_udp_quick(self):
+        self.bot_print_process('Starting NMAP UDP QUICK scan (top 20 ports)')
+        newports = self.get_command_output(f'nmap --open -sU -Pn -oN {self.PATH+"/nmap_udp_top20ports"} --top-ports=20 {self.TARGET}', "NMAP UDP QUICK scan", True)
+        if newports != 0:
+            self.nmap_detailed("NMAP UDP Quick detailed scan", False, "UDP", "Quick")
+
+    def nmap_full(self):
+        self.bot_print_process('Starting NMAP TCP Full scan')
+        newports = self.get_command_output(f'nmap --open -sS -Pn -p- -oN {self.PATH+"/nmap_full"} {self.TARGET}', "NMAP Full Scan", True)
+        self.check_scripts("tcp")
+        if newports != 0:
+            self.nmap_detailed("NMAP TCP Full detailed scan", True, "TCP", "Full")
+
+    def nmap_udp_full(self):
+        self.bot_print_process('Starting NMAP UDP Top 50 scan')
+        newports = self.get_command_output(f'nmap --open -sU -Pn -p- -oN {self.PATH+"/nmap_udp_top_200"} --top-ports=200 {self.TARGET}', "NMAP UDP Full Scan", True)
+        if newports != 0:
+            self.nmap_detailed("NMAP UDP Top 50 detailed scan", False, "UDP", "Full")
+
+    def nmap_detailed(self, name, checkscripts, protocol, type):
+        ports = ""
+        for i in self.services:
+            if protocol.lower() in i:
+                ports += i.split('-')[0] + ','
+        ports = ports[:-1]
+        if protocol == "TCP":
+            self.bot_print_process(f'Starting {name} scan on found {protocol} ports: {ports}')
+            newports = self.get_command_output(f'nmap --open -Pn -sV -sC -p {ports} -oN {self.PATH+"/nmap_detailed_"+protocol+"_"+type} {self.TARGET}', name, False)
+        elif protocol == "UDP":
+            self.bot_print_process(f'Starting {name} scan on UDP ports')
+            newports = self.get_command_output(f'nmap --open -Pn -sU -sV -sC -p {ports} -oN {self.PATH+"/nmap_detailed_"+protocol+"_"+type} {self.TARGET}', name, False)
+        if checkscripts:
+            self.check_scripts("tcp")
+
+    def nmap_vulnscan(self):
+        tcp_ports = ""
+        udp_ports = ""
+        for i in self.services:
+            if "tcp" in i:
+                tcp_ports += i.split('-')[0] + ','
+            elif "udp" in i:
+                udp_ports += i.split('-')[0] + ','
+
+        tcp_ports = tcp_ports[:-1]
+        udp_ports = udp_ports[:-1]
+        if len(tcp_ports) > 1:
+            tcp_vulnscan_thread = threading.Thread(target=self.nmap_vulnthread, args=[tcp_ports, "TCP"])
+            tcp_vulnscan_thread.daemon = True
+            tcp_vulnscan_thread.start()
+            self.scriptthreads["NMAP Vuln TCP Scan"] = tcp_vulnscan_thread
+
+        if len(udp_ports) > 1:
+            udp_vulnscan_thread = threading.Thread(target=self.nmap_vulnthread, args=[udp_ports, "UDP"])
+            udp_vulnscan_thread.daemon = True
+            udp_vulnscan_thread.start()
+            self.scriptthreads["NMAP Vuln UDP Scan"] = udp_vulnscan_thread
+
+    def nmap_vulnthread(self, ports, type):
+        self.bot_print_process(f'Starting NMAP VULN scan on found {type} ports: {ports}')
+        if type == "TCP":
+            newports = self.get_command_output(f'nmap --open -Pn --script vuln -p {ports} -oN {self.PATH + "/nmap_vuln_tcp"} {self.TARGET}', "NMAP TCP Vuln Scan", False)
+        elif type == "UDP":
+            newports = self.get_command_output(f'nmap --open -Pn -sU --script vuln -p {ports} -oN {self.PATH + "/nmap_vuln_udp"} {self.TARGET}', "NMAP UDP Vuln Scan", False)
+
+    def nmap_process(self, output):
+        output = output.split('\n')
+        newportcounter = 0
+        filtered_flag = False
+        for line in output:
+            if ("open" in line) and ("tcp" in line or "udp" in line) and "/" in line:
+                if "filtered" not in line:
+                    filtered_flag = False
+                parts = line.split()
+                protocol_port = parts[0].replace('/', '-')
+                service = line # seperate by spaces tabs etc, and get the last item
+                if protocol_port not in self.services.keys():
+                    self.services[protocol_port] = service
+                    newportcounter += 1
+                else:
+                    services = self.services[protocol_port].split('|')
+                    if service not in services:
+                        newservices = ('|'.join(services)) + '|' + service
+                        self.services[protocol_port] = newservices
+        return newportcounter
+
+    def check_scripts(self, type):
+        for protocol_port in self.services:
+            service = self.services[protocol_port]
+            services = service.split('|')
+            for serv in services:
+                for mapped_service in self.mapped_services:
+                    servlist = serv.split()
+                    cont = False
+                    for part in servlist[:3]:
+                        if len(part) > 2 and mapped_service in part and type in protocol_port:
+                            cont = True
+                    if cont:
+                        for script in self.mapped_services[mapped_service]:
+                            shouldrun = True
+                            if script in self.blacklist_services:
+                                for blacklisted in self.blacklist_services[script]:
+                                    if serv.startswith(blacklisted):
+                                        shouldrun = False
+                                if shouldrun:
+                                    self.start_script(protocol_port, script)
+                            else:
+                                self.start_script(protocol_port, script)
+
+    def start_script(self, protocol_port, script):
+        port = int(protocol_port.split('-')[0])
+        if script in self.runonce_commands:
+            if script not in self.runningscripts:
+                self.runningscripts.append(f"{script}")
+                cmd = self.mapped_commands[script].replace("__IP__", self.TARGET).replace("__PORT__", str(port)).replace("__PATH__", self.PATH)
+                if "hydra" in script:
+                    self.bot_print_alert(f'Trying to bruteforce with {script}')
+                else:
+                    self.bot_print_process(f'Starting {script}')
+                self.bot_print_done(f"\toutfile: {self.PATH}/{script}.txt")
+                t = threading.Thread(target=self.run_cmd, args=[cmd, script, port])
+                self.scriptthreads[script] = t
+                self.scriptthreads[script].daemon = True
+                self.scriptthreads[script].start()
+
+        else:
+            if f"{script}_{port}" not in self.runningscripts:
+                self.runningscripts.append(f"{script}_{port}")
+                cmd = self.mapped_commands[script].replace("__IP__", self.TARGET).replace("__PORT__", str(port)).replace("__PATH__", self.PATH)
+                if "hydra" in script:
+                    self.bot_print_alert(f'Trying to bruteforce with {script} on port {port}')
+                else:
+                    self.bot_print_process(f'Starting {script} on port {port}')
+                self.bot_print_done(f"\toutfile: {self.PATH}/{script}_{port}.txt")
+                t = threading.Thread(target=self.run_cmd, args=[cmd, script, port])
+                self.scriptthreads[f"{script}_{port}"] = t
+                self.scriptthreads[f"{script}_{port}"].daemon = True
+                self.scriptthreads[f"{script}_{port}"].start()
+
+    def get_command_output(self, cmd, name, printzerofound):
+        newports = -1
+        cmdl = cmd.split(' ')
+        result = subprocess.check_output(cmdl).decode('utf-8')
+        newports = self.nmap_process(result)
+        self.print_command_output(result, name)
+        if printzerofound and newports == 0:
+            self.bot_print_alert(f"{name} did not find any new ports!")
+        return newports
+
+    def print_command_output(self, cmd_output, name):
+        output = ""
+        output += colored('-'*100, 'green') + '\n'
+        output += colored(f'- {name}\n', 'green')
+        output += colored('-'*100, 'green')
+        output += f'\n{cmd_output}'
+        output += colored('-'*100, 'green')
+        self.bprint(output)
+
+    def run_cmd(self, cmd, script, port):
+        try:
+            if script in self.runonce_commands:
+                cmd_file = open(f"{self.PATH}/{script}.txt", "w+")
+            else:
+                cmd_file = open(f"{self.PATH}/{script}_{port}.txt", "w+")
+            subprocess.call(cmd, stdout=cmd_file, stderr=cmd_file, shell=True)
+            if "hydra" in script:
+                output = open(f"{self.PATH}/{script}_{port}.txt")
+                for line in output:
+                    if "host" in line:
+                        username = line.split(" login:")[1].split(' ')[1]
+                        password = line.split(" password:")[1].split(' ')[1]
+                        cred_line = colored(f"-"*100, "red")
+                        cred_line += colored("\nValid Credentials found in ", "red")
+                        cred_line += colored(f"{script}", "yellow") + colored(" on port: ", "red") + colored(f"{port}\n", "yellow")
+                        cred_line += colored(f"\tUsername: ", "red") + colored(f"{username}\n", "green", attrs=['bold'])
+                        cred_line += colored(f"\tPassword: ", "red") + colored(f"{password}\n", "green", attrs=['bold'])
+                        cred_line += colored(f"-"*100, "red")
+                        self.bprint(cred_line)
+        except KeyboardInterrupt:
+            self.bot_print_alert(f"Stopping {script}")
+
+    def shutdown(self):
+        self.logfile.close()
+
+    def initial(self):
+        # start tcp quick thread
+        tcp_quick_thread = threading.Thread(target=self.nmap_quick)
+        tcp_quick_thread.daemon = True
+        tcp_quick_thread.start()
+        self.scriptthreads["NMAP Quick / Detailed TCP Scan"] = tcp_quick_thread
+
+        # start tcp full thread
+        tcp_full_thread = threading.Thread(target=self.nmap_full)
+        tcp_full_thread.daemon = True
+        tcp_full_thread.start()
+        self.scriptthreads["NMAP Full TCP / Detailed Scan"] = tcp_full_thread
+
+        # start udp quick thread
+        udp_quick_thread = threading.Thread(target=self.nmap_udp_quick)
+        udp_quick_thread.daemon = True
+        udp_quick_thread.start()
+        self.scriptthreads["NMAP Quick UDP / Detailed Scan"] = udp_quick_thread
+
+        # start udp full thread
+        udp_full_thread = threading.Thread(target=self.nmap_udp_full)
+        udp_full_thread.daemon = True
+        udp_full_thread.start()
+        self.scriptthreads["NMAP Full UDP / Detailed Scan"] = udp_full_thread
+
+        vulnscan = True
+        while vulnscan: # we wait untill the quick tcp scan, the full tcp scan and the quick udp scans are finished to start a vuln scan, udp full scans take way too long to wait for this.
+            if not tcp_quick_thread.is_alive() and not tcp_full_thread.is_alive() and not udp_quick_thread.is_alive():
+                self.nmap_vulnscan()
+                vulnscan = False
+
+def main(): 
+    if os.geteuid() != 0:
+        print(colored("Reconbot needs to be run as root to work!", "red", attrs=['bold']))
+        sys.exit()
+
+    args = sys.argv
+    rbot = reconbot(args)
+
+
+    try:
+        scanning_thread = threading.Thread(target=rbot.initial)
+        scanning_thread.daemon = True
+        scanning_thread.start()
+
+        time.sleep(120)
+
+        tcounter = 0 # The clock starts tickin
+        while True:
+            tcounter += 1
+            counter = 0
+            alivescripts = []
+            for script in rbot.scriptthreads:
+                if (rbot.scriptthreads[script].is_alive()):
+                    counter += 1
+                    alivescripts.append(script)
+            if counter == 0:
+                rbot.bprint(colored('ReconBot finished scanning ', 'green', attrs=['bold'])+colored(rbot.TARGET+'', 'red', attrs=['bold']))
+                rbot.shutdown()
+                sys.exit()
+            if tcounter % 120 == 0 or tcounter == 1:
+                rbot.bprint(colored(f"\n{counter}", 'red', attrs=['bold'])+colored(' scripts still running', 'green', attrs=['bold']))
+                msg = ""
+                for scr in alivescripts:
+                    msg += '\t'+colored(scr, 'red', attrs=['bold']) + '\n'
+                rbot.bprint(msg)
+            time.sleep(1)
+
+    except KeyboardInterrupt:
+        rbot.shutdown()
+        rbot.bot_print_alert("Keyboard Interrupt found, stopping reconbot!")
+
+if __name__ == "__main__":
+    main()
