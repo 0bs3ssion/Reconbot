@@ -37,7 +37,8 @@ class reconbot:
             "mongodb": ['nmap_nse_mongodb'],
             "ms-sql": ['nmap_nse_ms-sql'],
             "irc": ['nmap_nse_irc'],
-            "mysql": ['nmap_nse_mysql', "hydra_mysql"]
+            "mysql": ['nmap_nse_mysql', "hydra_mysql"],
+            "ms-wbt-server": ["hydra_rdp"]
         }
         self.mapped_commands = {
             "gobuster" : f"gobuster dir --url http://__IP__:__PORT__/ -s '200,204,301,302,307,403,500' -x 'txt,html,php,asp,aspx,jsp' -w {self.WEBLIST}",
@@ -71,11 +72,12 @@ class reconbot:
             "nmap_nse_dns": "nmap -Pn -p __PORT__ --script \"dns*\" __IP__",
 
             # hydra will attempt to bruteforce about 1700 combinations (17 usernames with 100 passwords)
-            "hydra_ftp": f"hydra -s __PORT__ -L {self.USERLIST} -P {self.PASSLIST} __IP__ ftp",
-            "hydra_ssh": f"hydra -s __PORT__ -L {self.USERLIST} -P {self.PASSLIST} __IP__ ssh",
-            "hydra_smb": f"hydra -s __PORT__ -L -L {self.USERLIST} -P {self.PASSLIST} __IP__ smb",
-            "hydra_mysql": f"hydra -s __PORT__ -L -L {self.USERLIST} -P {self.PASSLIST} __IP__ mysql",
-            "hydra_telnet": f"hydra -s __PORT__ -L -L {self.USERLIST} -P {self.PASSLIST} __IP__ telnet"
+            "hydra_ftp": f"hydra -s __PORT__ -L {self.USERLIST} -P {self.PASSLIST} ftp://__IP__",
+            "hydra_ssh": f"hydra -s __PORT__ -L {self.USERLIST} -P {self.PASSLIST} ssh://__IP__",
+            "hydra_smb": f"hydra -s __PORT__ -L {self.USERLIST} -P {self.PASSLIST} smb://__IP__",
+            "hydra_mysql": f"hydra -s __PORT__ -L {self.USERLIST} -P {self.PASSLIST} mysql://__IP__",
+            "hydra_telnet": f"hydra -s __PORT__ -L {self.USERLIST} -P {self.PASSLIST} telnet://__IP__",
+            "hydra_rdp": f"hydra -s __PORT__ -L {self.USERLIST} -P {self.PASSLIST} rdp://__IP__"
         }
         self.runonce_commands = [
             "enum4linux",
@@ -112,7 +114,6 @@ class reconbot:
                     self.shutdown()
                     break
                 if (tcounter % 120 == 0) and (tcounter != 0):
-                    print(tcounter)
                     self.bprint(
                         colored(f"\n{counter}", 'red', attrs=['bold']) + colored(' scripts still running', 'green',attrs=['bold']))
                     msg = ""
