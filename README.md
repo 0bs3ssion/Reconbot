@@ -8,7 +8,7 @@ Reconbot allows you to speed up the process of Reconnaissance and Enumeration by
 
 
 ## Installation
-You only need 1 python package for this script to work, to install use the following command:
+You only need 1 python package for this script to work (I think, let me know if you have any issues), to install use the following command:
 
 `sudo pip3 install termcolor`
 
