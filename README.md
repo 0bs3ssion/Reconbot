@@ -36,6 +36,7 @@ optional arguments:
   --nmaponly         Only activate the nmap scripts
   --quick            Only activate quick port scanning
   --bruteonly        Only activate the hydra bruteforcing scripts
+  --verbose          Display extra output in the reconbot output (things like paths gobuster finds)
 
 EXAMPLES
 
