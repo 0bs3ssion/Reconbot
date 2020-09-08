@@ -19,7 +19,7 @@ Then you can just run reconbot:
 
 
 ```
-usage: Reconbot [-h] [-HF] [-p] [-U] [-P] [-w] [--nmaponly] [--quick] [--bruteonly]
+usage: Reconbot [-h] [-HF] [-p] [-U] [-P] [-w] [--nmaponly] [--quick] [--bruteonly] [--verbose]
 
 Automated Reconnaissance Bot
 
