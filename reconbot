@@ -517,7 +517,7 @@ class reconbot:
                 if username+password not in dumped:
                     dumped.append(username+password)
                     self.reconbot_info["Credentials"].append(f"{username}:{password}")
-                    self.bot_print_finding(colored("\nCredentials", "red", attrs=['bold']) + colored(f" found in {process_file}: ", 'red') + colored(f"{username}", "green", attrs=['bold']) + colored(f":", "red") + colored(f"{password}\n", "green", attrs=['bold']))
+                    self.bot_print_finding(colored("Credentials", "red", attrs=['bold']) + colored(f" found in {process_file}: ", 'red') + colored(f"{username}", "green", attrs=['bold']) + colored(f":", "red") + colored(f"{password}\n", "green", attrs=['bold']))
 
     def processor_gobuster(self,  process_file, dumped):
         output = open(process_file)
