@@ -298,13 +298,20 @@ class reconbot:
             os.chmod(self.PATH, 0o755)
             os.chown(self.TARGET, 1000, 1000)
             os.chown(self.PATH, 1000, 1000)
+        self.XMLPATH = self.PATH + '/xml_nmap'
+        if not os.path.exists(self.XMLPATH):
+            os.makedirs(self.PATH + '/xml_nmap')
+            os.chmod(self.TARGET, 0o755)
+            os.chmod(self.PATH, 0o755)
+            os.chown(self.TARGET, 1000, 1000)
+            os.chown(self.PATH, 1000, 1000)
 
     def nmap_quick(self):
         self.bot_print_process('Starting NMAP TCP Quick scan')
         if self.PORTS:
-            newports = self.get_command_output(f'nmap -sS -p {self.PORTS} -Pn --open -oN {self.PATH+"/nmap_quick"} {self.TARGET}', "NMAP Quick Scan", True)
+            newports = self.get_command_output(f'nmap -sS -p {self.PORTS} -Pn --open -oN {self.PATH+"/nmap_quick"} -oX {self.XMLPATH+"/nmap_quick_xml"} {self.TARGET}', "NMAP Quick Scan", True)
         else:
-            newports = self.get_command_output(f'nmap -sS -Pn --open -oN {self.PATH+"/nmap_quick"} {self.TARGET}', "NMAP Quick Scan", True)
+            newports = self.get_command_output(f'nmap -sS -Pn --open -oN {self.PATH+"/nmap_quick"} {self.TARGET} -oX {self.XMLPATH+"/nmap_quick_xml"}', "NMAP Quick Scan", True)
         self.check_scripts("tcp")
         if newports != 0:
             self.nmap_detailed("NMAP TCP Quick detailed scan", True, "TCP", "Quick")
@@ -312,14 +319,14 @@ class reconbot:
     def nmap_udp_quick(self):
         if not self.PORTS:
             self.bot_print_process('Starting NMAP UDP QUICK scan (top 20 ports)')
-            newports = self.get_command_output(f'nmap --open -sU -Pn -oN {self.PATH+"/nmap_udp_top20ports"} --top-ports=20 {self.TARGET}', "NMAP UDP QUICK scan", True)
+            newports = self.get_command_output(f'nmap --open -sU -Pn -oN {self.PATH+"/nmap_udp_top20ports"} -oX {self.XMLPATH+"/nmap_udp_top20ports_xml"} --top-ports=20 {self.TARGET}', "NMAP UDP QUICK scan", True)
             if newports != 0:
                 self.nmap_detailed("NMAP UDP Quick detailed scan", False, "UDP", "Quick")
 
     def nmap_full(self):
         if not self.PORTS:
             self.bot_print_process('Starting NMAP TCP Full scan')
-            newports = self.get_command_output(f'nmap --open -sS -Pn -p- -oN {self.PATH+"/nmap_full"} {self.TARGET}', "NMAP Full Scan", True)
+            newports = self.get_command_output(f'nmap --open -sS -Pn -p- -oN {self.PATH+"/nmap_full"} -oX {self.XMLPATH+"/nmap_full_xml"} {self.TARGET}', "NMAP Full Scan", True)
             self.check_scripts("tcp")
             if newports != 0:
                 self.nmap_detailed("NMAP TCP Full detailed scan", True, "TCP", "Full")
@@ -327,7 +334,7 @@ class reconbot:
     def nmap_udp_full(self):
         if not self.PORTS:
             self.bot_print_process('Starting NMAP UDP Top 50 scan')
-            newports = self.get_command_output(f'nmap --open -sU -Pn -p- -oN {self.PATH+"/nmap_udp_top_200"} --top-ports=200 {self.TARGET}', "NMAP UDP Full Scan", True)
+            newports = self.get_command_output(f'nmap --open -sU -Pn -p- -oN {self.PATH+"/nmap_udp_top_200"} -oX {self.XMLPATH+"/nmap_udp_top_200_xml"} --top-ports=200 {self.TARGET}', "NMAP UDP Full Scan", True)
             if newports != 0:
                 self.nmap_detailed("NMAP UDP Top 50 detailed scan", False, "UDP", "Full")
 
@@ -339,10 +346,10 @@ class reconbot:
         ports = ports[:-1]
         if protocol == "TCP":
             self.bot_print_process(f'Starting {name} scan on found {protocol} ports: {ports}')
-            newports = self.get_command_output(f'nmap --open -Pn -sV -sC -p {ports} -oN {self.PATH+"/nmap_detailed_"+protocol+"_"+type} {self.TARGET}', name, False)
+            newports = self.get_command_output(f'nmap --open -Pn -sV -sC -p {ports} -oN {self.PATH+"/nmap_detailed_"+protocol+"_"+type} -oX {self.XMLPATH+"/nmap_detailed_"+protocol+"_"+type+"_xml"} {self.TARGET}', name, False)
         elif protocol == "UDP":
             self.bot_print_process(f'Starting {name} scan on UDP ports')
-            newports = self.get_command_output(f'nmap --open -Pn -sU -sV -sC -p {ports} -oN {self.PATH+"/nmap_detailed_"+protocol+"_"+type} {self.TARGET}', name, False)
+            newports = self.get_command_output(f'nmap --open -Pn -sU -sV -sC -p {ports} -oN {self.PATH+"/nmap_detailed_"+protocol+"_"+type} -oX {self.XMLPATH+"/nmap_detailed_"+protocol+"_"+type+"_xml"} {self.TARGET}', name, False)
         if checkscripts:
             self.check_scripts("tcp")
 
@@ -372,9 +379,9 @@ class reconbot:
     def nmap_vulnthread(self, ports, type):
         self.bot_print_process(f'Starting NMAP VULN scan on found {type} ports: {ports}')
         if type == "TCP":
-            newports = self.get_command_output(f'nmap --open -Pn --script vuln -p {ports} -oN {self.PATH + "/nmap_vuln_tcp"} {self.TARGET}', "NMAP TCP Vuln Scan", False)
+            newports = self.get_command_output(f'nmap --open -Pn --script vuln -p {ports} -oN {self.PATH + "/nmap_vuln_tcp"} -oX {self.XMLPATH+"/nmap_vuln_tcp_xml"} {self.TARGET}', "NMAP TCP Vuln Scan", False)
         elif type == "UDP":
-            newports = self.get_command_output(f'nmap --open -Pn -sU --script vuln -p {ports} -oN {self.PATH + "/nmap_vuln_udp"} {self.TARGET}', "NMAP UDP Vuln Scan", False)
+            newports = self.get_command_output(f'nmap --open -Pn -sU --script vuln -p {ports} -oN {self.PATH + "/nmap_vuln_udp"} {self.TARGET} -oX {self.XMLPATH+"/nmap_vuln_tcp_xml"}', "NMAP UDP Vuln Scan", False)
 
     def nmap_process(self, output):
         output = output.split('\n')
@@ -655,7 +662,7 @@ def main():
             rbot.run()
         except KeyboardInterrupt:
             rbot.shutdown()
-            rbot.bot_print_alert("Keyboard Interrupt found, stopping reconbot!")
+            rbot.bot_print_alert("Keyboard Interrupt found, stopping reconbot! (If your terminal is broken after reconbot has terminated, run the 'stty sane' command)")
             sys.exit()
     else:
         try:
@@ -664,7 +671,7 @@ def main():
                 rbot.run()
         except KeyboardInterrupt:
             rbot.shutdown()
-            rbot.bot_print_alert("Keyboard Interrupt found, stopping reconbot!")
+            rbot.bot_print_alert("Keyboard Interrupt found, stopping reconbot! (If your terminal is broken after reconbot has terminated, run the 'stty sane' command)")
             sys.exit()
 
 if __name__ == "__main__":
