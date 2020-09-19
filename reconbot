@@ -18,10 +18,14 @@ class reconbot:
     def __init__(self, args, IP):
         urllib3.disable_warnings()
         self.defaultvalues = {
-            "weblist" : "/usr/share/seclists/Discovery/Web-Content/big.txt",
+            "weblist" : "/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt",
             "userlist" : "/usr/share/seclists/Usernames/top-usernames-shortlist.txt",
             "passlist" : "/usr/share/seclists/Passwords/darkweb2017-top100.txt"
         }
+        self.scriptvars = {
+                "host_timeout" : "30m",
+                "user_agent" : "Mozilla/5.0 (X11; Linux x86_64; rv:68.0) Gecko/20100101 Firefox/68.0"
+                }
         self.args = args
         self.IP = IP
         self.scriptthreads = {}
@@ -53,8 +57,8 @@ class reconbot:
             "ms-wbt-server": ["hydra_rdp"]
         }
         self.mapped_commands = {
-            "gobuster" : f"gobuster dir --url http://__IP__:__PORT__/ -s '200,204,301,302,307,403,500' -x 'txt,html,php,asp,aspx,jsp' -w {self.WEBLIST}",
-            "gobuster_https" : f"gobuster dir --url https://__IP__:__PORT__/ -s '200,204,301,302,307,403,500' -x 'txt,html,php,asp,aspx,jsp' -w {self.WEBLIST} -k",
+            "gobuster" : f"gobuster dir --url http://__IP__:__PORT__/ -a '{self.scriptvars['user_agent']}' -s '200,204,301,302,307,403,500' -x 'txt,html,php,asp,aspx,jsp' -w {self.WEBLIST}",
+            "gobuster_https" : f"gobuster dir --url https://__IP__:__PORT__/ -a '{self.scriptvars['user_agent']}' -s '200,204,301,302,307,403,500' -x 'txt,html,php,asp,aspx,jsp' -w {self.WEBLIST} -k",
             "nikto" : "nikto -ask=no --host http://__IP__:__PORT__/",
             "nikto_https" : "nikto -ask=no --host https://__IP__:__PORT__/",
             "enum4linux" : "enum4linux -a __IP__ ",
@@ -63,25 +67,26 @@ class reconbot:
             "onesixtyone" : "onesixtyone __IP__",
             "snmpwalk" : "snmpwalk __IP__",
             "smbmap" : "smbmap -H __IP__ -P __PORT__",
-            "nmap_nse_telnet": "nmap -Pn -p __PORT__ --script \"telnet* and not telnet-brute*\" __IP__",
-            "nmap_nse_ssh": "nmap -Pn -p __PORT__ --script \"ssh* and not ssh-brute*\" __IP__",
-            "nmap_nse_nbstat" : "nmap -Pn -p __PORT__ --script \"nbstat*\" __IP__",
-            "nmap_nse_smb" : "nmap -Pn -p __PORT__ --script \"smb-enum*\" __IP__",
-            "nmap_nse_rpc" : "nmap -Pn -p __PORT__ --script \"rpc* and not rpcap*\" __IP__",
-            "nmap_nse_snmp": "nmap -Pn -p __PORT__ --script \"snmp*\" __IP__",
-            "nmap_nse_smtp": "nmap -Pn -p __PORT__ --script \"smtp*\" __IP__",
-            "nmap_nse_http": "nmap -Pn -p __PORT__ --script \"http*\" __IP__",
-            "nmap_nse_ntp": "nmap -Pn -p __PORT__ --script \"ntp*\" __IP__",
-            "nmap_nse_dns": "nmap -Pn -p __PORT__ --script \"dns*\" __IP__",
-            "nmap_nse_ftp": "nmap -Pn -p __PORT__ --script \"ftp* and not ftp-brute*\" __IP__",
-            "nmap_nse_imap": "nmap -Pn -p __PORT__ --script \"imap*\" __IP__",
-            "nmap_nse_ldap": "nmap -Pn -p __PORT__ --script \"ldap*\" __IP__",
-            "nmap_nse_irc": "nmap -Pn -p __PORT__ --script \"irc*\" __IP__",
-            "nmap_nse_mongodb": "nmap -Pn -p __PORT__ --script \"mongodb*\" __IP__",
-            "nmap_nse_ms-sql": "nmap -Pn -p __PORT__ --script \"ms-sql*\" __IP__",
-            "nmap_nse_mysql": "nmap -Pn -p __PORT__ --script \"mysql* and not mysql-brute*\" __IP__",
-            "nmap_nse_msrpc": "nmap -Pn -p __PORT__ --script \"msrpc*\" __IP__",
-            "nmap_nse_dns": "nmap -Pn -p __PORT__ --script \"dns*\" __IP__",
+            "nmap_nse_telnet": "nmap -Pn -p __PORT__ --host-timeout " + self.scriptvars['host_timeout'] + " --script \"telnet* and not telnet-brute*\" __IP__",
+            "nmap_nse_ssh": "nmap -Pn -p __PORT__ --host-timeout " + self.scriptvars['host_timeout'] + " --script \"ssh* and not ssh-brute*\" __IP__",
+            "nmap_nse_nbstat" : "nmap -Pn -p __PORT__ --host-timeout " + self.scriptvars['host_timeout'] + " --script \"nbstat*\" __IP__",
+            "nmap_nse_smb" : "nmap -Pn -p __PORT__ --host-timeout " + self.scriptvars['host_timeout'] + " --script \"smb-enum*\" __IP__",
+            "nmap_nse_rpc" : "nmap -Pn -p __PORT__ --host-timeout " + self.scriptvars['host_timeout'] + " --script \"rpc* and not rpcap*\" __IP__",
+            "nmap_nse_snmp": "nmap -Pn -p __PORT__ --host-timeout " + self.scriptvars['host_timeout'] + " --script \"snmp*\" __IP__",
+            "nmap_nse_smtp": "nmap -Pn -p __PORT__ --host-timeout " + self.scriptvars['host_timeout'] + " --script \"smtp*\" __IP__",
+            "nmap_nse_http": "nmap -Pn -p __PORT__ --host-timeout " + self.scriptvars['host_timeout'] + " --script \"http*\" __IP__",
+            "nmap_nse_ntp": "nmap -Pn -p __PORT__ --host-timeout " + self.scriptvars['host_timeout'] + " --script \"ntp*\" __IP__",
+            "nmap_nse_dns": "nmap -Pn -p __PORT__ --host-timeout " + self.scriptvars['host_timeout'] + " --script \"dns*\" __IP__",
+            "nmap_nse_ftp": "nmap -Pn -p __PORT__ --host-timeout " + self.scriptvars['host_timeout'] + " --script \"ftp* and not ftp-brute*\" __IP__",
+            "nmap_nse_imap": "nmap -Pn -p __PORT__ --host-timeout " + self.scriptvars['host_timeout'] + " --script \"imap*\" __IP__",
+            "nmap_nse_ldap": "nmap -Pn -p __PORT__ --host-timeout " + self.scriptvars['host_timeout'] + " --script \"ldap*\" __IP__",
+            "nmap_nse_irc": "nmap -Pn -p __PORT__ --host-timeout " + self.scriptvars['host_timeout'] + " --script \"irc*\" __IP__",
+            "nmap_nse_mongodb": "nmap -Pn -p __PORT__ --host-timeout " + self.scriptvars['host_timeout'] + " --script \"mongodb*\" __IP__",
+            "nmap_nse_ms-sql": "nmap -Pn -p __PORT__ --host-timeout " + self.scriptvars['host_timeout'] + " --script \"ms-sql*\" __IP__",
+            "nmap_nse_mysql": "nmap -Pn -p __PORT__ --host-timeout " + self.scriptvars['host_timeout'] + " --script \"mysql* and not mysql-brute*\" __IP__",
+            "nmap_nse_msrpc": "nmap -Pn -p __PORT__ --host-timeout " + self.scriptvars['host_timeout'] + " --script \"msrpc*\" __IP__",
+            "nmap_nse_dns": "nmap -Pn -p __PORT__ --host-timeout " + self.scriptvars['host_timeout'] + " --script \"dns*\" __IP__",
+            "nmap_nse_oracle": "nmap -Pn -p __PORT__ --host-timeout " + self.scriptvars['host_timeout'] + " --script \"oracle*\" __IP__",
 
             # hydra will attempt to bruteforce about 1700 combinations (17 usernames with 100 passwords)
             "hydra_ftp": f"hydra -s __PORT__ -L {self.USERLIST} -P {self.PASSLIST} ftp://__IP__",
