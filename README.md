@@ -8,9 +8,19 @@ Reconbot allows you to speed up the process of Reconnaissance and Enumeration by
 
 
 ## Installation
-You only need 1 python package for this script to work (I think, let me know if you have any issues), to install use the following command:
+You need 2 python packages for this script:
+`sudo pip3 install termcolor bs4`
 
-`sudo pip3 install termcolor`
+Reconbot also uses the following tools to further enumerate a target, it is recommended you install theise (most if not all are installed on kali by default):
+* hydra
+* gobuster
+* nikto
+* rpcinfo
+* enum4linux
+* smbmap
+* snmp-check
+* onesixtyone
+* snmpwalk
 
 Then you can just run reconbot:
 
