@@ -12,13 +12,14 @@ import requests
 import urllib3
 from termcolor import colored
 from bs4 import BeautifulSoup, Comment
+from shutil import which
 
 class reconbot:
 
     def __init__(self, args, IP):
         urllib3.disable_warnings()
         self.defaultvalues = {
-            "weblist" : "/usr/share/wordlists/dirbuster/directory-list-2.3-medium.txt",
+            "weblist" : "/usr/share/seclists/Discovery/Web-Content/directory-list-2.3-medium.txt",
             "userlist" : "/usr/share/seclists/Usernames/top-usernames-shortlist.txt",
             "passlist" : "/usr/share/seclists/Passwords/darkweb2017-top100.txt"
         }
@@ -26,6 +27,17 @@ class reconbot:
                 "host_timeout" : "30m",
                 "user_agent" : "Mozilla/5.0 (X11; Linux x86_64; rv:68.0) Gecko/20100101 Firefox/68.0"
                 }
+        self.which_checklist = [
+            "hydra",
+            "gobuster",
+            "nikto",
+            "rpcinfo",
+            "enum4linux",
+            "smbmap",
+            "snmp-check",
+            "onesixtyone",
+            "snmpwalk"
+        ]
         self.args = args
         self.IP = IP
         self.scriptthreads = {}
@@ -57,8 +69,8 @@ class reconbot:
             "ms-wbt-server": ["hydra_rdp"]
         }
         self.mapped_commands = {
-            "gobuster" : f"gobuster dir --url http://__IP__:__PORT__/ -a '{self.scriptvars['user_agent']}' -s '200,204,301,302,307,403,500' -x 'txt,html,php,asp,aspx,jsp' -w {self.WEBLIST}",
-            "gobuster_https" : f"gobuster dir --url https://__IP__:__PORT__/ -a '{self.scriptvars['user_agent']}' -s '200,204,301,302,307,403,500' -x 'txt,html,php,asp,aspx,jsp' -w {self.WEBLIST} -k",
+            "gobuster" : f"gobuster dir -u http://__IP__:__PORT__/ -a '{self.scriptvars['user_agent']}' -s '200,204,301,302,307,403,500' -x 'txt,html,php,asp,aspx,jsp' -w {self.WEBLIST}",
+            "gobuster_https" : f"gobuster dir -u https://__IP__:__PORT__/ -a '{self.scriptvars['user_agent']}' -s '200,204,301,302,307,403,500' -x 'txt,html,php,asp,aspx,jsp' -w {self.WEBLIST} -k",
             "nikto" : "nikto -ask=no --host http://__IP__:__PORT__/",
             "nikto_https" : "nikto -ask=no --host https://__IP__:__PORT__/",
             "enum4linux" : "enum4linux -a __IP__ ",
@@ -582,10 +594,19 @@ class reconbot:
         except KeyboardInterrupt:
             self.bot_print_alert(f"Stopping {script}")
 
+    def check_which(self):
+        print("")
+        for softwareName in self.which_checklist:
+            if which(softwareName) is None:
+                self.bot_print_alert(f"{softwareName} was not found! Please install for full use of reconbot")
+        print("")
+
+
     def shutdown(self):
         self.logfile.close()
 
     def initial(self):
+        self.check_which()
         # start tcp quick thread
         tcp_quick_thread = threading.Thread(target=self.nmap_quick)
         tcp_quick_thread.daemon = True
@@ -622,6 +643,8 @@ class reconbot:
                 if not tcp_quick_thread.is_alive() and not udp_quick_thread.is_alive():
                     self.nmap_vulnscan()
                     vulnscan = False
+
+
 
 def main(): 
 
@@ -660,6 +683,7 @@ def main():
     else:
         print(colored('[', 'white', attrs=['bold']) + colored('!', 'red', attrs=['bold']) + colored('] ', 'white', attrs=['bold']) + colored(f"Please supply target or targetfile (use reconbot -h for usage)", 'red'))
         sys.exit()
+
 
     if TARGET:
         try:
